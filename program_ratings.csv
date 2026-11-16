@@ -1,0 +1,12 @@
+Program_ID,Program_Name,Genre,Duration_Hours,Base_Rating,Modified_Rating,Adjustment_Reason
+P1,Morning News,News,1,85,88,Increased priority for early morning viewer spike
+P2,Breakfast Show,Talk Show,2,70,72,Minor adjustment based on morning audience trends
+P3,Kids Cartoon,Animation,1,90,95,High demand during school holiday mornings
+P4,Documentary Hour,Documentary,1,60,65,Shifted to off-peak slot with slight rating boost
+P5,Midday News,News,1,75,75,Retained base rating for noon update slot
+P6,Cooking Masterclass,Lifestyle,1,80,85,Optimized for afternoon homemaker demographic
+P7,Tech Talk,Technology,1,65,70,Adjusted for niche tech enthusiast prime segment
+P8,Drama Series,Drama,2,95,98,Prime-time anchor show given highest priority
+P9,Evening News,News,1,90,92,Critical news hour rating enhancement
+P10,Prime Time Movie,Movie,2,98,100,Peak evening entertainment maximum rating
+P11,Late Night Talk,Talk Show,1,50,55,Late night slot adjustment for mature audience
