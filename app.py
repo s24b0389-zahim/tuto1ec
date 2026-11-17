@@ -18,7 +18,7 @@ st.markdown(
 st.divider()
 
 # 1. Load and display modified dataset
-st.subheader("📁 Modified Program Ratings Dataset")
+st.subheader("📁 Program Ratings Dataset (Hour 6 – Hour 23)")
 try:
   df_ratings = pd.read_csv("program_ratings.csv")
   st.dataframe(df_ratings, use_container_width=True)
@@ -28,26 +28,35 @@ except FileNotFoundError:
   )
 
 
-# Genetic Algorithm Class
+# Genetic Algorithm Class tailored for Hourly Rating Matrix
 class GeneticScheduler:
 
-  def __init__(self, programs, pop_size=50, generations=100):
-    self.programs = programs
+  def __init__(self, df, pop_size=50, generations=100):
+    self.df = df
     self.pop_size = pop_size
     self.generations = generations
+    self.hours = [col for col in df.columns if col != "Type of Program"]
+    self.programs = df["Type of Program"].tolist()
+
+    # Build lookup dictionary: (program, hour) -> rating
+    self.ratings = {}
+    for _, row in df.iterrows():
+      prog = row["Type of Program"]
+      for h in self.hours:
+        self.ratings[(prog, h)] = float(row[h])
 
   def fitness(self, chromosome):
-    total_rating = sum(
-        self.programs.loc[self.programs["Program_ID"] == p][
-            "Modified_Rating"
-        ].values[0]
-        for p in chromosome
+    # Sum the hourly ratings for the scheduled program at each hour
+    return sum(
+        self.ratings[(prog, self.hours[i])] for i, prog in enumerate(chromosome)
     )
-    return total_rating
 
   def run(self, co_r, mut_r):
-    prog_ids = self.programs["Program_ID"].tolist()
-    population = [random.sample(prog_ids, len(prog_ids)) for _ in range(self.pop_size)]
+    # Initialize population: each individual assigns a program to each hour slot
+    population = [
+        [random.choice(self.programs) for _ in range(len(self.hours))]
+        for _ in range(self.pop_size)
+    ]
 
     best_schedule = None
     best_fitness = -float("inf")
@@ -60,56 +69,43 @@ class GeneticScheduler:
         best_fitness = scored_pop[0][1]
         best_schedule = scored_pop[0][0]
 
-      selected = [ind for ind, fit in scored_pop[: self.pop_size // 2]]
+      # Selection (Top 50%)
+      selected = [ind for ind, _ in scored_pop[: self.pop_size // 2]]
       next_generation = selected.copy()
 
       while len(next_generation) < self.pop_size:
         p1, p2 = random.sample(selected, 2)
+        # Single-point Crossover
         if random.random() < co_r:
-          cut = len(p1) // 2
-          child = p1[:cut] + [item for item in p2 if item not in p1[:cut]]
+          cut = random.randint(1, len(self.hours) - 1)
+          child = p1[:cut] + p2[cut:]
         else:
           child = p1.copy()
 
-        if random.random() < mut_r:
-          idx1, idx2 = random.sample(range(len(child)), 2)
-          child[idx1], child[idx2] = child[idx2], child[idx1]
+        # Mutation
+        for i in range(len(child)):
+          if random.random() < mut_r:
+            child[i] = random.choice(self.programs)
 
         next_generation.append(child)
 
       population = next_generation
 
-    # Format schedule into table rows
+    # Format best schedule into a DataFrame table
     scheduled_rows = []
-    time_slots = [
-        "08:00 AM",
-        "09:00 AM",
-        "10:00 AM",
-        "11:00 AM",
-        "12:00 PM",
-        "01:00 PM",
-        "02:00 PM",
-        "03:00 PM",
-        "05:00 PM",
-        "07:00 PM",
-        "09:00 PM",
-    ]
-
-    for i, prog_id in enumerate(best_schedule[: len(time_slots)]):
-      row = self.programs[self.programs["Program_ID"] == prog_id].iloc[0]
+    for i, prog in enumerate(best_schedule):
+      hour_label = self.hours[i]
+      rating_val = self.ratings[(prog, hour_label)]
       scheduled_rows.append({
-          "Time Slot": time_slots[i],
-          "Program ID": row["Program_ID"],
-          "Program Name": row["Program_Name"],
-          "Genre": row["Genre"],
-          "Duration (Hrs)": row["Duration_Hours"],
-          "Rating": row["Modified_Rating"],
+          "Time Slot": hour_label,
+          "Scheduled Program": prog,
+          "Hourly Rating": rating_val,
       })
 
-    return pd.DataFrame(scheduled_rows), best_fitness
+    return pd.DataFrame(scheduled_rows), round(best_fitness, 2)
 
 
-# Sidebar Parameter Controls (as required by assignment)
+# Sidebar Parameter Controls
 st.sidebar.header("⚙️ GA Parameters")
 co_r = st.sidebar.slider(
     "CO_R (Crossover Rate)",
@@ -135,24 +131,24 @@ if "df_ratings" in locals():
   if run_trials_btn:
     st.subheader("📊 Experimental Trial Results")
 
-    # Trial 1
+    # Trial 1 (User Configuration)
     st.markdown(
         f"### Trial 1: CO_R = {co_r}, MUT_R = {mut_r} (User Configuration)"
     )
     df_1, fit_1 = scheduler.run(co_r, mut_r)
-    st.success(f"Fitness Score: **{fit_1}**")
+    st.success(f"Total Schedule Fitness Score: **{fit_1}**")
     st.dataframe(df_1, use_container_width=True)
 
-    # Trial 2
+    # Trial 2 (High Exploration)
     st.markdown("### Trial 2: CO_R = 0.90, MUT_R = 0.01 (High Exploration)")
     df_2, fit_2 = scheduler.run(0.90, 0.01)
-    st.success(f"Fitness Score: **{fit_2}**")
+    st.success(f"Total Schedule Fitness Score: **{fit_2}**")
     st.dataframe(df_2, use_container_width=True)
 
-    # Trial 3
+    # Trial 3 (High Diversity)
     st.markdown("### Trial 3: CO_R = 0.60, MUT_R = 0.05 (High Diversity)")
     df_3, fit_3 = scheduler.run(0.60, 0.05)
-    st.success(f"Fitness Score: **{fit_3}**")
+    st.success(f"Total Schedule Fitness Score: **{fit_3}**")
     st.dataframe(df_3, use_container_width=True)
 
     st.divider()
@@ -161,7 +157,7 @@ if "df_ratings" in locals():
         "Trial": ["Trial 1", "Trial 2", "Trial 3"],
         "CO_R": [co_r, 0.90, 0.60],
         "MUT_R": [mut_r, 0.01, 0.05],
-        "Fitness Score": [fit_1, fit_2, fit_3],
+        "Total Fitness Score": [fit_1, fit_2, fit_3],
     })
     st.dataframe(summary_df, use_container_width=True)
   else:
